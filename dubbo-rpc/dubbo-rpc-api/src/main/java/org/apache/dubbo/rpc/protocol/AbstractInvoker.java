@@ -148,7 +148,9 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
              */
             invocation.addAttachments(contextAttachments);
         }
+
         if (getUrl().getMethodParameter(invocation.getMethodName(), Constants.ASYNC_KEY, false)) {
+            // 设置异步信息到 RpcInvocation#attachment 中
             invocation.setAttachment(Constants.ASYNC_KEY, Boolean.TRUE.toString());
         }
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);

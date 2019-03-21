@@ -228,6 +228,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             throw new IllegalStateException("The invoker of ReferenceConfig(" + url + ") has already destroyed!");
         }
         if (ref == null) {
+            // init 方法主要用于处理配置，以及调用 createProxy 生成代理类
             init();
         }
         return ref;
@@ -286,12 +287,16 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             for (MethodConfig methodConfig : methods) {
                 appendParameters(map, methodConfig, methodConfig.getName());
                 String retryKey = methodConfig.getName() + ".retry";
+                // 检测 map 是否包含 methodName.retry
                 if (map.containsKey(retryKey)) {
                     String retryValue = map.remove(retryKey);
                     if ("false".equals(retryValue)) {
+                        // 添加重试次数配置 methodName.retries
                         map.put(methodConfig.getName() + ".retries", "0");
                     }
                 }
+                // 添加 MethodConfig 中的“属性”字段到 attributes
+                // 比如 onreturn、onthrow、oninvoke 等
                 attributes.put(methodConfig.getName(), convertMethodConfig2AyncInfo(methodConfig));
             }
         }
@@ -302,8 +307,11 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         }
         map.put(Constants.REGISTER_IP_KEY, hostToRegistry);
 
+        //创建代理
         ref = createProxy(map);
 
+        // 根据服务名，ReferenceConfig，代理类构建 ConsumerModel，
+        // 并将 ConsumerModel 存入到 ApplicationModel 中
         String serviceKey = URL.buildKey(interfaceName, group, version);
         ApplicationModel.initConsumerModel(serviceKey, buildConsumerModel(serviceKey, attributes));
     }
@@ -321,16 +329,20 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         }
         return new ConsumerModel(serviceKey, serviceInterface, ref, methods, attributes);
     }
+
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
         if (shouldJvmRefer(map)) {
+            // 生成本地引用 URL，协议为 injvm
             URL url = new URL(Constants.LOCAL_PROTOCOL, Constants.LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
+            // 调用 refer 方法构建 InjvmInvoker 实例
             invoker = refprotocol.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
                 logger.info("Using injvm service " + interfaceClass.getName());
             }
         } else {
-            if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
+            // user specified URL, could be peer-to-peer address, or register center's address.
+            if (url != null && url.length() > 0) {
                 String[] us = Constants.SEMICOLON_SPLIT_PATTERN.split(url);
                 if (us != null && us.length > 0) {
                     for (String u : us) {
@@ -338,7 +350,9 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                         if (StringUtils.isEmpty(url.getPath())) {
                             url = url.setPath(interfaceName);
                         }
+                        // 检测 url 协议是否为 registry，若是，表明用户想使用指定的注册中心
                         if (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) {
+                            // 将 map 转换为查询字符串，并作为 refer 参数的值添加到 url 中
                             urls.add(url.addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map)));
                         } else {
                             urls.add(ClusterUtils.mergeUrl(url, map));
@@ -347,6 +361,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                 }
             } else { // assemble URL from register center's configuration
                 checkRegistry();
+                // 加载注册中心 url
                 List<URL> us = loadRegistries(false);
                 if (CollectionUtils.isNotEmpty(us)) {
                     for (URL u : us) {
@@ -363,11 +378,14 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             }
 
             if (urls.size() == 1) {
+                // 单个注册中心或服务提供者(服务直连，下同)
                 invoker = refprotocol.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 for (URL url : urls) {
+                    // 通过 refprotocol 调用 refer 构建 Invoker，refprotocol 会在运行时
+                    // 根据 url 协议头加载指定的 Protocol 实例，并调用实例的 refer 方法
                     invokers.add(refprotocol.refer(interfaceClass, url));
                     if (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) {
                         registryURL = url; // use last registry url
@@ -377,6 +395,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                     // use RegistryAwareCluster only when register's cluster is available
                     URL u = registryURL.addParameter(Constants.CLUSTER_KEY, RegistryAwareCluster.NAME);
                     // The invoker wrap relation would be: RegistryAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, will execute route) -> Invoker
+                    // 创建 StaticDirectory 实例，并由 Cluster 对多个 Invoker 进行合并
                     invoker = cluster.join(new StaticDirectory(u, invokers));
                 } else { // not a registry url, must be direct invoke.
                     invoker = cluster.join(new StaticDirectory(invokers));
@@ -432,7 +451,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
 
     protected boolean shouldCheck() {
         Boolean shouldCheck = isCheck();
-        if (shouldCheck == null && getConsumer()!= null) {
+        if (shouldCheck == null && getConsumer() != null) {
             shouldCheck = getConsumer().isCheck();
         }
         if (shouldCheck == null) {
@@ -463,14 +482,14 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             return;
         }
         setConsumer(
-                        ConfigManager.getInstance()
-                            .getDefaultConsumer()
-                            .orElseGet(() -> {
-                                ConsumerConfig consumerConfig = new ConsumerConfig();
-                                consumerConfig.refresh();
-                                return consumerConfig;
-                            })
-                );
+                ConfigManager.getInstance()
+                        .getDefaultConsumer()
+                        .orElseGet(() -> {
+                            ConsumerConfig consumerConfig = new ConsumerConfig();
+                            consumerConfig.refresh();
+                            return consumerConfig;
+                        })
+        );
     }
 
     private void completeCompoundConfigs() {

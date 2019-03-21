@@ -86,6 +86,7 @@ public abstract class Proxy {
 
             Class<?> tmp = null;
             try {
+                // 重新加载接口类
                 tmp = Class.forName(itf, false, cl);
             } catch (ClassNotFoundException e) {
             }
@@ -134,6 +135,8 @@ public abstract class Proxy {
         String pkg = null;
         ClassGenerator ccp = null, ccm = null;
         try {
+            // 创建 ClassGenerator 对象
+            //ccp 用于为服务接口生成代理类，比如我们有一个 DemoService 接口，这个接口代理类就是由 ccp 生成的。
             ccp = ClassGenerator.newInstance(cl);
 
             Set<String> worked = new HashSet<>();
@@ -193,6 +196,7 @@ public abstract class Proxy {
 
             // create Proxy class.
             String fcn = Proxy.class.getName() + id;
+            //ccm 则是用于为 org.apache.dubbo.common.bytecode.Proxy 抽象类生成子类，主要是实现 Proxy 类的抽象方法。
             ccm = ClassGenerator.newInstance(cl);
             ccm.setClassName(fcn);
             ccm.addDefaultConstructor();
@@ -223,6 +227,31 @@ public abstract class Proxy {
         }
         return proxy;
     }
+
+    /**
+     * package org.apache.dubbo.common.bytecode;
+     *
+     * public class proxy0 implements org.apache.dubbo.demo.DemoService {
+     *
+     *     public static java.lang.reflect.Method[] methods;
+     *
+     *     private java.lang.reflect.InvocationHandler handler;
+     *
+     *     public proxy0() {
+     *     }
+     *
+     *     public proxy0(java.lang.reflect.InvocationHandler arg0) {
+     *         handler = $1;
+     *     }
+     *
+     *     public java.lang.String sayHello(java.lang.String arg0) {
+     *         Object[] args = new Object[1];
+     *         args[0] = ($w) $1;
+     *         Object ret = handler.invoke(this, methods[0], args);
+     *         return (java.lang.String) ret;
+     *     }
+     * }
+     */
 
     private static String asArgument(Class<?> cl, String name) {
         if (cl.isPrimitive()) {

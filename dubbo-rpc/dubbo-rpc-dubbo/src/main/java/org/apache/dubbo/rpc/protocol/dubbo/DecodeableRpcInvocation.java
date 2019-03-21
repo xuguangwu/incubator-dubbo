@@ -90,10 +90,12 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
+        // 通过反序列化得到 dubbo version，并保存到 attachments 变量中
         String dubboVersion = in.readUTF();
         request.setVersion(dubboVersion);
         setAttachment(Constants.DUBBO_VERSION_KEY, dubboVersion);
 
+        // 通过反序列化得到 path，version，并保存到 attachments 变量中
         setAttachment(Constants.PATH_KEY, in.readUTF());
         setAttachment(Constants.VERSION_KEY, in.readUTF());
 
@@ -101,11 +103,13 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
         try {
             Object[] args;
             Class<?>[] pts;
+            // 通过反序列化得到参数类型字符串，比如 Ljava/lang/String;
             String desc = in.readUTF();
             if (desc.length() == 0) {
                 pts = DubboCodec.EMPTY_CLASS_ARRAY;
                 args = DubboCodec.EMPTY_OBJECT_ARRAY;
             } else {
+                // 将 desc 解析为参数类型数组
                 pts = ReflectUtils.desc2classArray(desc);
                 args = new Object[pts.length];
                 for (int i = 0; i < args.length; i++) {
@@ -133,7 +137,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
             for (int i = 0; i < args.length; i++) {
                 args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]);
             }
-
+            // 设置参数列表
             setArguments(args);
 
         } catch (ClassNotFoundException e) {

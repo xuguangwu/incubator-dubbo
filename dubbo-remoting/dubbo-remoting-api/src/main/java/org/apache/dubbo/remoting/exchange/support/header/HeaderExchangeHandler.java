@@ -197,8 +197,10 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                     handlerEvent(channel, request);
                 } else {
                     if (request.isTwoWay()) {
+                        // 向后调用服务，并得到调用结果
                         handleRequest(exchangeChannel, request);
                     } else {
+                        // 如果是单向通信，仅向后调用指定服务即可，无需返回调用结果
                         handler.received(exchangeChannel, request.getData());
                     }
                 }

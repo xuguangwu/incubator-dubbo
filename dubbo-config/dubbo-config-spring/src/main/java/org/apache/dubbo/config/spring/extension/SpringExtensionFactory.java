@@ -35,6 +35,8 @@ import org.springframework.context.event.ContextClosedEvent;
 import java.util.Set;
 
 /**
+ * 从 Spring 的 IOC 容器中获取所需的拓展
+ * <p>
  * SpringExtensionFactory
  */
 public class SpringExtensionFactory implements ExtensionFactory {

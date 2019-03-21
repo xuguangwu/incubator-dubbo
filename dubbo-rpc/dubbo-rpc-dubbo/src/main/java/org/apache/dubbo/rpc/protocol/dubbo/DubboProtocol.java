@@ -87,6 +87,9 @@ public class DubboProtocol extends AbstractProtocol {
      */
     private final ConcurrentMap<String, String> stubServiceMethodsMap = new ConcurrentHashMap<>();
 
+    /**
+     * 匿名类对象逻辑
+     */
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
 
         @Override
@@ -99,6 +102,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
+            // 获取 Invoker 实例
             Invoker<?> invoker = getInvoker(channel, inv);
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
@@ -240,7 +244,12 @@ public class DubboProtocol extends AbstractProtocol {
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
 
+        // 计算 service key，格式为 groupName/serviceName:serviceVersion:port。比如：
+        //   dubbo/com.alibaba.dubbo.demo.DemoService:1.0.0:20880
         String serviceKey = serviceKey(port, path, inv.getAttachments().get(Constants.VERSION_KEY), inv.getAttachments().get(Constants.GROUP_KEY));
+
+        // 从 exporterMap 查找与 serviceKey 相对应的 DubboExporter 对象，
+        // 服务导出过程中会将 <serviceKey, DubboExporter> 映射关系存储到 exporterMap 集合中
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
@@ -266,10 +275,14 @@ public class DubboProtocol extends AbstractProtocol {
 
         // export service.
         String key = serviceKey(url);
+        // 创建 DubboExporter
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
+
+        // 将 <key, exporter> 键值对放入缓存中
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
+        // 本地存根相关代码
         Boolean isStubSupportEvent = url.getParameter(Constants.STUB_EVENT_KEY, Constants.DEFAULT_STUB_EVENT);
         Boolean isCallbackservice = url.getParameter(Constants.IS_CALLBACK_SERVICE, false);
         if (isStubSupportEvent && !isCallbackservice) {
@@ -284,8 +297,9 @@ public class DubboProtocol extends AbstractProtocol {
                 stubServiceMethodsMap.put(url.getServiceKey(), stubServiceMethods);
             }
         }
-
+        // 启动服务器
         openServer(url);
+        // 优化序列化
         optimizeSerialization(url);
 
         return exporter;
@@ -317,9 +331,11 @@ public class DubboProtocol extends AbstractProtocol {
                 // send readonly event when server closes, it's enabled by default
                 .addParameterIfAbsent(Constants.CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString())
                 // enable heartbeat by default
+                // 添加心跳检测配置到 url 中
                 .addParameterIfAbsent(Constants.HEARTBEAT_KEY, String.valueOf(Constants.DEFAULT_HEARTBEAT))
                 .addParameter(Constants.CODEC_KEY, DubboCodec.NAME)
                 .build();
+        // 获取 server 参数，默认为 netty
         String str = url.getParameter(Constants.SERVER_KEY, Constants.DEFAULT_REMOTING_SERVER);
 
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str)) {
@@ -328,6 +344,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         ExchangeServer server;
         try {
+            // 创建 ExchangeServer
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
@@ -335,6 +352,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         str = url.getParameter(Constants.CLIENT_KEY);
         if (str != null && str.length() > 0) {
+            // 获取所有的 Transporter 实现类名称集合，比如 supportedTypes = [netty, mina]
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();
             if (!supportedTypes.contains(str)) {
                 throw new RpcException("Unsupported client type: " + str);
@@ -394,12 +412,13 @@ public class DubboProtocol extends AbstractProtocol {
 
     private ExchangeClient[] getClients(URL url) {
         // whether to share connection
-
+        // 是否共享连接
         boolean useShareConnect = false;
 
         int connections = url.getParameter(Constants.CONNECTIONS_KEY, 0);
         List<ReferenceCountExchangeClient> shareClients = null;
         // if not configured, connection is shared, otherwise, one connection for one service
+        // 如果未配置 connections，则共享连接
         if (connections == 0) {
             useShareConnect = true;
 
@@ -433,9 +452,11 @@ public class DubboProtocol extends AbstractProtocol {
      */
     private List<ReferenceCountExchangeClient> getSharedClient(URL url, int connectNum) {
         String key = url.getAddress();
+        // 获取带有“引用计数”功能的 ExchangeClient
         List<ReferenceCountExchangeClient> clients = referenceClientMap.get(key);
 
         if (checkClientCanUse(clients)) {
+            // 增加引用计数
             batchClientRefIncr(clients);
             return clients;
         }
@@ -555,8 +576,10 @@ public class DubboProtocol extends AbstractProtocol {
     private ExchangeClient initClient(URL url) {
 
         // client type setting.
+        // 获取客户端类型，默认为 netty
         String str = url.getParameter(Constants.CLIENT_KEY, url.getParameter(Constants.SERVER_KEY, Constants.DEFAULT_REMOTING_CLIENT));
 
+        // 添加编解码和心跳包参数到 url 中
         url = url.addParameter(Constants.CODEC_KEY, DubboCodec.NAME);
         // enable heartbeat by default
         url = url.addParameterIfAbsent(Constants.HEARTBEAT_KEY, String.valueOf(Constants.DEFAULT_HEARTBEAT));
@@ -571,6 +594,7 @@ public class DubboProtocol extends AbstractProtocol {
         try {
             // connection should be lazy
             if (url.getParameter(Constants.LAZY_CONNECT_KEY, false)) {
+                // 创建懒加载 ExchangeClient 实例，当有request调用的时候才会创建client
                 client = new LazyConnectExchangeClient(url, requestHandler);
 
             } else {

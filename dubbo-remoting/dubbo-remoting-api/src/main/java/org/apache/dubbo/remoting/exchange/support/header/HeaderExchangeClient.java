@@ -37,6 +37,8 @@ import static org.apache.dubbo.common.utils.UrlUtils.getHeartbeat;
 import static org.apache.dubbo.common.utils.UrlUtils.getIdleTimeout;
 
 /**
+ * 心跳检测
+ * <p>
  * DefaultMessageClient
  */
 public class HeaderExchangeClient implements ExchangeClient {

@@ -74,6 +74,7 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         inv.setAttachment(Constants.VERSION_KEY, version);
 
         ExchangeClient currentClient;
+        // 从 clients 数组中获取 ExchangeClient
         if (clients.length == 1) {
             currentClient = clients[0];
         } else {
@@ -82,14 +83,18 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         try {
             boolean isAsync = RpcUtils.isAsync(getUrl(), invocation);
             boolean isAsyncFuture = RpcUtils.isReturnTypeFuture(inv);
+            // isOneway 为 true，表示“单向”通信
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
             int timeout = getUrl().getMethodParameter(methodName, Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
+            // 异步无返回值
             if (isOneway) {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 currentClient.send(inv, isSent);
                 RpcContext.getContext().setFuture(null);
                 return new RpcResult();
-            } else if (isAsync) {
+            }
+            // 异步有返回值
+            else if (isAsync) {
                 ResponseFuture future = currentClient.request(inv, timeout);
                 // For compatibility
                 FutureAdapter<Object> futureAdapter = new FutureAdapter<>(future);
@@ -104,6 +109,7 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 }
                 return result;
             } else {
+                // 同步调用
                 RpcContext.getContext().setFuture(null);
                 return (Result) currentClient.request(inv, timeout).get();
             }

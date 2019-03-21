@@ -52,6 +52,8 @@ import java.util.Map;
 import static org.apache.dubbo.config.spring.util.BeanFactoryUtils.addApplicationListener;
 
 /**
+ *
+ *
  * ServiceFactoryBean
  *
  * @export
@@ -104,6 +106,10 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
         return service;
     }
 
+    /**
+     * 服务导出的入口方法
+     * @param event
+     */
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         if (!isExported() && !isUnexported()) {

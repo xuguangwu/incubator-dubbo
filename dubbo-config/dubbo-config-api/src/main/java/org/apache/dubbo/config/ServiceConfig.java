@@ -298,6 +298,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             }
             Class<?> localClass;
             try {
+                // 获取本地存根类
                 localClass = ClassHelper.forNameWithThreadContextClassLoader(local);
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);

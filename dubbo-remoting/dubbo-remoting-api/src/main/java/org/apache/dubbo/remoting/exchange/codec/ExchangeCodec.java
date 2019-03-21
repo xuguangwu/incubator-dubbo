@@ -66,8 +66,10 @@ public class ExchangeCodec extends TelnetCodec {
     @Override
     public void encode(Channel channel, ChannelBuffer buffer, Object msg) throws IOException {
         if (msg instanceof Request) {
+            // 对 Request 对象进行编码
             encodeRequest(channel, buffer, (Request) msg);
         } else if (msg instanceof Response) {
+            // 对 Response 对象进行编码
             encodeResponse(channel, buffer, (Response) msg);
         } else {
             super.encode(channel, buffer, msg);
@@ -106,7 +108,7 @@ public class ExchangeCodec extends TelnetCodec {
             return DecodeResult.NEED_MORE_INPUT;
         }
 
-        // get data length.
+        // get data length.  从消息头中获取消息体长度
         int len = Bytes.bytes2int(header, 12);
         checkPayload(channel, len);
 
@@ -136,11 +138,12 @@ public class ExchangeCodec extends TelnetCodec {
 
     protected Object decodeBody(Channel channel, InputStream is, byte[] header) throws IOException {
         byte flag = header[2], proto = (byte) (flag & SERIALIZATION_MASK);
-        // get request id.
+        // get request id.  requestId
         long id = Bytes.bytes2long(header, 4);
         if ((flag & FLAG_REQUEST) == 0) {
             // decode response.
             Response res = new Response(id);
+            // 通过位运算检测数据包是否为事件类型
             if ((flag & FLAG_EVENT) != 0) {
                 res.setEvent(true);
             }
@@ -209,22 +212,24 @@ public class ExchangeCodec extends TelnetCodec {
 
     protected void encodeRequest(Channel channel, ChannelBuffer buffer, Request req) throws IOException {
         Serialization serialization = getSerialization(channel);
-        // header.
+        // header.创建消息头字节数组，长度为 16
         byte[] header = new byte[HEADER_LENGTH];
-        // set magic number.
+        // set magic number. 设置魔数
         Bytes.short2bytes(MAGIC, header);
 
-        // set request and serialization flag.
+        // set request and serialization flag. 设置数据包类型（Request/Response）和序列化器编号 0 - Response, 1 - Request
         header[2] = (byte) (FLAG_REQUEST | serialization.getContentTypeId());
 
+        // 设置通信方式(单向/双向) 仅在第16位被设为1的情况下有效，0 - 单向调用，1 - 双向调用
         if (req.isTwoWay()) {
             header[2] |= FLAG_TWOWAY;
         }
+        // 设置事件标识 0 - 当前数据包是请求或响应包，1 - 当前数据包是心跳包
         if (req.isEvent()) {
             header[2] |= FLAG_EVENT;
         }
 
-        // set request id.
+        // set request id. // 设置请求编号，8个字节，从第4个字节开始设置
         Bytes.long2bytes(req.getId(), header, 4);
 
         // encode request data.
@@ -233,8 +238,10 @@ public class ExchangeCodec extends TelnetCodec {
         ChannelBufferOutputStream bos = new ChannelBufferOutputStream(buffer);
         ObjectOutput out = serialization.serialize(channel.getUrl(), bos);
         if (req.isEvent()) {
+            // 对事件数据进行序列化操作
             encodeEventData(channel, out, req.getData());
         } else {
+            // 对请求数据进行序列化操作
             encodeRequestData(channel, out, req.getData(), req.getVersion());
         }
         out.flushBuffer();
@@ -243,13 +250,18 @@ public class ExchangeCodec extends TelnetCodec {
         }
         bos.flush();
         bos.close();
+
+        // 获取写入的字节数，也就是消息体长度
         int len = bos.writtenBytes();
         checkPayload(channel, len);
+        // 将消息体长度写入到消息头中
         Bytes.int2bytes(len, header, 12);
 
-        // write
+        // 将 buffer 指针移动到 savedWriteIndex，为写消息头做准备
         buffer.writerIndex(savedWriteIndex);
-        buffer.writeBytes(header); // write header.
+        // 从 savedWriteIndex 下标处写入消息头
+        buffer.writeBytes(header);
+        // 设置新的 writerIndex，writerIndex = 原写下标 + 消息头长度 + 消息体长度
         buffer.writerIndex(savedWriteIndex + HEADER_LENGTH + len);
     }
 
