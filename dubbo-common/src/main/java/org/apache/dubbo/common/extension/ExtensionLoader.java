@@ -476,6 +476,7 @@ public class ExtensionLoader<T> {
                     instance = cachedAdaptiveInstance.get();
                     if (instance == null) {
                         try {
+                            //自适应，代理类(实现了接口)，从URL中获取信息生成代理类,URL中的参数名就是@Adaptive()注解中声名的
                             instance = createAdaptiveExtension();
                             cachedAdaptiveInstance.set(instance);
                         } catch (Throwable t) {
@@ -733,6 +734,7 @@ public class ExtensionLoader<T> {
                     + clazz.getName() + " is not subtype of interface.");
         }
         if (clazz.isAnnotationPresent(Adaptive.class)) {
+            //加有Adaptive注解的类就是代理类
             cacheAdaptiveClass(clazz);
         } else if (isWrapperClass(clazz)) {
             cacheWrapperClass(clazz);

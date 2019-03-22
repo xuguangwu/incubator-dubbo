@@ -1,4 +1,7 @@
-package org.apache.dubbo.demo.consumer.spiTest;
+package org.apache.dubbo.demo.consumer.spiTest.dubbo;
+
+import org.apache.dubbo.common.URL;
+import org.apache.dubbo.demo.consumer.spiTest.Robot;
 
 public class RobotWrapper2 implements Robot {
 
@@ -20,4 +23,8 @@ public class RobotWrapper2 implements Robot {
         robot.sayHello();
     }
 
+    @Override
+    public void name(URL url) {
+
+    }
 }
